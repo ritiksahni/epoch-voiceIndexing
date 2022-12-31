@@ -1,5 +1,4 @@
 from flask import Flask, request, session
-from flask_cors import CORS
 from datetime import datetime
 from firebaseAdmin import db
 from dotenv import load_dotenv
@@ -10,7 +9,6 @@ import hashlib
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app)
 
 load_dotenv('./.secrets/.env')
 app.secret_key = os.getenv('FLASK_SECRET_KEY')
@@ -18,22 +16,13 @@ app.secret_key = os.getenv('FLASK_SECRET_KEY')
 # Load the Whisper model.
 whisperModel = whisper.load_model('small')
 
-def download_file(url):
-    local_filename = url.split('/')[-1]
-    r = requests.get(url, stream=True)
-    with open(f'audio_files/{local_filename}', 'wb') as f:
-        for chunk in r.iter_content(chunk_size=1024): 
-            if chunk:
-                f.write(chunk)
-    return local_filename
-
 def sendDataToTypesense(jsonData):
     headers = {'X-Typesense-Api-Key': os.getenv('TYPESENSE_API_KEY')}
-    response = requests.post(f'{os.getenv("TYPESENSE_NODE_URL")}/collections/transcriptions/documents/import?action=create', headers=headers, json=jsonData)
+    response = requests.post('https://i3nbyhgz42t1o9vjp-1.a1.typesense.net/collections/transcriptions/documents/import?action=create', headers=headers, json=jsonData)
     return True
 
-def addTranscriptionToFirestore(textRes, user_id):
-    doc_reference = db.collection(u'users').document(user_id).collection(u'transcriptions').document()
+def addTranscriptionToFirestore(textRes):
+    doc_reference = db.collection(u'users').document('1').collection(u'transcriptions').document()
     data = {}
     data['date_time'] = datetime.now().strftime('%Y-%m-%d %H:%M')
     data['text'] = textRes
@@ -50,13 +39,11 @@ def handle_webhook():
     message_body = data.get('Body')
     from_number = data.get('From')
 
-    mediaUrl = request.form['MediaUrl0']
     # Download from mediaUrl and save to audio_files directory.
-    fileName = download_file(mediaUrl)
-    
+        
 
     # Transcribe the audio file
-    transcription = whisperModel.transcribe(message_body)
+    transcription = whisperModel.transcribe('audio_files/' + message_sid + '.wav')
     textRes = transcription['text']
     if (addTranscriptionToFirestore(textRes)):
         return ("Transcription added to Firestore.")
