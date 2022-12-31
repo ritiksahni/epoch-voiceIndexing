@@ -7,7 +7,6 @@ import os
 import whisper
 import requests
 import hashlib
-import pymongo
 
 # Initialize Flask app
 app = Flask(__name__)
